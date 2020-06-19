@@ -30,6 +30,16 @@ func getFiles(dir string) ([]os.FileInfo, error) {
 	return ioutil.ReadDir(dir)
 }
 
+// RefreshFiles func
+func (st *State) RefreshFiles() error {
+	files, err := getFiles(st.CurrentDir)
+	if err != nil {
+		return err
+	}
+	st.Files = files
+	return nil
+}
+
 // ChangeDir func
 func (st *State) ChangeDir(dir string) error {
 	f, err := os.Stat(dir)
@@ -57,4 +67,20 @@ func (st *State) BackToParentDir() error {
 	st.CurrentDir, _ = os.Getwd()
 	st.Files, _ = getFiles(st.CurrentDir)
 	return nil
+}
+
+// CreateFile func
+func (st *State) CreateFile(fileName string) error {
+	_, err := os.Create(fileName)
+	return err
+}
+
+// CreateDirectory func
+func (st *State) CreateDirectory(dirName string) error {
+	return os.MkdirAll(dirName, 0755)
+}
+
+// DeleteFileAndDirectory func
+func (st *State) DeleteFileAndDirectory(path string) error {
+	return os.RemoveAll(path)
 }

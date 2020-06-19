@@ -1,2 +1,4 @@
 go.sum
 tui
+.vscode
+main_.go

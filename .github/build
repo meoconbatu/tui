@@ -1,1 +1,3 @@
-go build
+GOOS=darwin GOARCH=amd64 go build -o tui-mac
+GOOS=linux GOARCH=amd64 go build -o tui-linux
+GOOS=windows GOARCH=amd64 go build -o tui-windows.exe
