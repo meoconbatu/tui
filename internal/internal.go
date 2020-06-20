@@ -84,3 +84,9 @@ func (st *State) CreateDirectory(dirName string) error {
 func (st *State) DeleteFileAndDirectory(path string) error {
 	return os.RemoveAll(path)
 }
+
+// ReadFile func
+func (st *State) ReadFile(path string) (string, error) {
+	data, err := ioutil.ReadFile(path)
+	return string(data), err
+}

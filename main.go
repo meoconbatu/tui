@@ -32,11 +32,35 @@ func main() {
 	inputField := tview.NewInputField().SetFieldBackgroundColor(tcell.ColorDarkViolet)
 	dirNameField := tview.NewInputField().SetFieldBackgroundColor(tcell.ColorDarkViolet)
 	fileNameField := tview.NewInputField().SetFieldBackgroundColor(tcell.ColorDarkViolet)
-
+	contentField := tview.NewTextView().
+		SetDynamicColors(true).
+		SetRegions(true).
+		SetWrap(false).SetScrollable(true)
 	list := tview.NewList().ShowSecondaryText(false)
 
 	loadItem(list, state)
 	list.SetSelectedFunc(handler(state, list, infoField, titleField))
+	list.SetChangedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
+		if state.CurrentDir != "/" {
+			index--
+		}
+		if index < 0 {
+			contentField.SetText("")
+			return
+		}
+		selectedRow := state.Files[index].Name()
+		if !state.Files[index].IsDir() {
+			data, err := state.ReadFile(selectedRow)
+
+			if err != nil {
+				infoField.SetText(err.Error())
+				return
+			}
+			contentField.SetText(data).ScrollToBeginning()
+		} else {
+			contentField.SetText("")
+		}
+	})
 	list.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		infoField.SetText("")
 		switch event.Key() {
@@ -58,45 +82,61 @@ func main() {
 		}
 		return event
 	})
-	inputField.SetDoneFunc(func(key tcell.Key) {
-		inputText := inputField.GetText()
-		switch inputText {
-		case "d":
-			dirNameField.SetLabel("relative path:")
-			layout.AddItem(dirNameField, 1, 1, false)
-			app.SetFocus(dirNameField)
-		case "f":
-			fileNameField.SetLabel("relative path:")
-			layout.AddItem(fileNameField, 1, 1, false)
-			app.SetFocus(fileNameField)
-		case "y":
-			selectedRow := ""
-			index := list.GetCurrentItem()
-			if state.CurrentDir != "/" {
-				index--
+	inputField.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
+		case tcell.KeyRune:
+			switch event.Rune() {
+			case 'd':
+				dirNameField.SetLabel("relative path:")
+				layout.AddItem(dirNameField, 1, 1, false)
+				app.SetFocus(dirNameField)
+				inputField.SetText("")
+				layout.RemoveItem(inputField)
+				return nil
+			case 'f':
+				fileNameField.SetLabel("relative path:")
+				layout.AddItem(fileNameField, 1, 1, false)
+				app.SetFocus(fileNameField)
+				inputField.SetText("")
+				layout.RemoveItem(inputField)
+				return nil
+			case 'y':
+				selectedRow := ""
+				index := list.GetCurrentItem()
+				if state.CurrentDir != "/" {
+					index--
+				}
+				if index < 0 {
+					break
+				}
+				selectedRow = state.Files[index].Name()
+				if err := state.DeleteFileAndDirectory(selectedRow); err != nil {
+					infoField.SetText(err.Error())
+					break
+				}
+				if err := state.RefreshFiles(); err != nil {
+					infoField.SetText(err.Error())
+					break
+				}
+				list.Clear()
+				loadItem(list, state)
+				app.SetFocus(list)
+				inputField.SetText("")
+				layout.RemoveItem(inputField)
+				return nil
+			case 'n':
+				app.SetFocus(list)
+				inputField.SetText("")
+				layout.RemoveItem(inputField)
+				return nil
 			}
-			if index < 0 {
-				break
-			}
-			selectedRow = state.Files[index].Name()
-			if err := state.DeleteFileAndDirectory(selectedRow); err != nil {
-				infoField.SetText(err.Error())
-				break
-			}
-
-			if err := state.RefreshFiles(); err != nil {
-				infoField.SetText(err.Error())
-				break
-			}
-			list.Clear()
-			loadItem(list, state)
-
-			app.SetFocus(list)
-		default:
-			app.SetFocus(list)
 		}
+		return event
+	})
+	inputField.SetDoneFunc(func(key tcell.Key) {
 		inputField.SetText("")
 		layout.RemoveItem(inputField)
+		app.SetFocus(list)
 	})
 
 	dirNameField.SetDoneFunc(func(key tcell.Key) {
@@ -145,9 +185,12 @@ func main() {
 		layout.RemoveItem(fileNameField)
 		app.SetFocus(list)
 	})
+
 	layout.
 		AddItem(titleField, 1, 1, false).
-		AddItem(list, 0, 1, true).
+		AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
+			AddItem(list, 0, 1, true).
+			AddItem(contentField, 0, 2, false), 0, 1, true).
 		AddItem(infoField, 1, 1, false)
 
 	if err := app.SetRoot(layout, true).Run(); err != nil {
