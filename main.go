@@ -79,8 +79,23 @@ func main() {
 				layout.AddItem(inputField, 1, 1, false)
 				app.SetFocus(inputField)
 			}
+		case tcell.KeyRight, tcell.KeyLeft:
+			if contentField.GetText(false) != "" {
+				app.SetFocus(contentField)
+			}
+			return nil
 		}
 		return event
+	})
+	list.SetDrawFunc(func(screen tcell.Screen, x int, y int, width int, height int) (int, int, int, int) {
+		// Draw a horizontal line across the middle of the box.
+		centerX := width - 2
+		for cy := y; cy < y+height; cy++ {
+			screen.SetContent(centerX, cy, '|', nil, tcell.StyleDefault.Foreground(tcell.ColorWhite))
+		}
+
+		// Space for other content.
+		return 0, 1, width - 2, height
 	})
 	inputField.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
@@ -185,12 +200,19 @@ func main() {
 		layout.RemoveItem(fileNameField)
 		app.SetFocus(list)
 	})
-
+	contentField.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
+		case tcell.KeyRight, tcell.KeyLeft:
+			app.SetFocus(list)
+			return nil
+		}
+		return event
+	})
 	layout.
 		AddItem(titleField, 1, 1, false).
 		AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
 			AddItem(list, 0, 1, true).
-			AddItem(contentField, 0, 2, false), 0, 1, true).
+			AddItem(contentField, 0, 3, false), 0, 1, true).
 		AddItem(infoField, 1, 1, false)
 
 	if err := app.SetRoot(layout, true).Run(); err != nil {
